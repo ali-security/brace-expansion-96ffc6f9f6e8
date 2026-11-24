@@ -1,29 +1,22 @@
 name: CI
 
 on:
-  push:
-    branches: ['main']
-  pull_request:
-    paths:
-      - 'src/**'
-      - 'test/**'
-      - '*.json'
-      - '*.js'
-      - '*.ts'
-      - 'lib/**'
-      - 'scripts/**'
-      - '.github/workflows/ci.yml'
-      - 'package.json'
   workflow_dispatch:
+    inputs:
+      test-filter:
+        description: 'Optional tap test file selectors to run instead of the full suite'
+        required: false
+        default: ''
 
 permissions:
   contents: read
 
 jobs:
   build:
+    timeout-minutes: 30
     strategy:
       matrix:
-        node-version: [18.x, 20.x, 22.x, 24.x, 25.x]
+        node-version: [23.x, 18.x, 20.x, 22.x, 24.x, 25.x]
         platform:
         - os: ubuntu-latest
           shell: bash
@@ -53,4 +46,16 @@ jobs:
         run: npm ci
 
       - name: Run Tests
-        run: npm test -- -c -t0
+        run: npm test -- -c -t0 ${{ inputs.test-filter }}
+
+      - name: Pack tarball
+        if: matrix.platform.os == 'ubuntu-latest' && matrix.platform.shell == 'bash' && matrix.node-version == '23.x'
+        run: npm pack
+
+      - name: Upload tarball
+        if: matrix.platform.os == 'ubuntu-latest' && matrix.platform.shell == 'bash' && matrix.node-version == '23.x'
+        uses: actions/upload-artifact@v4
+        with:
+          name: npm-tarball
+          path: brace-expansion-*.tgz
+          if-no-files-found: error
